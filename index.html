@@ -46,7 +46,7 @@ video{object-fit:cover}video.mirror{transform:scaleX(-1)}
 #thumbs{flex:1;display:flex;gap:6px;overflow-x:auto;min-height:54px;scrollbar-width:none}
 #thumbs:empty:before{content:"Captured shots appear here";color:var(--mut);align-self:center}
 .th{position:relative;flex:0 0 auto;width:54px;height:54px;border-radius:8px;overflow:hidden;border:1px solid var(--line);padding:0;background:#000}
-.th img{width:100%;height:100%;object-fit:cover}
+.th img,.th video{width:100%;height:100%;object-fit:cover}
 .th em{position:absolute;right:2px;bottom:2px;font:700 10px/1 system-ui;font-style:normal;background:var(--ac);color:#000;border-radius:4px;padding:2px 4px}
 button{cursor:pointer;font:inherit;color:var(--tx)}
 button:focus-visible,input:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
@@ -63,19 +63,38 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--ac);outline-off
 #flip{justify-self:end;width:56px;height:56px;border-radius:50%;border:1px solid var(--line);background:transparent;font-size:12px}
 #modal{position:fixed;inset:0;background:rgba(0,0,0,.94);display:none;flex-direction:column;z-index:10;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
 #modal.on{display:flex}
-#modal img{flex:1;min-height:0;object-fit:contain;width:100%}
+#modal img,#modal video{flex:1;min-height:0;object-fit:contain;width:100%}
 #mbar{display:flex;gap:8px;justify-content:center;padding:12px;flex-wrap:wrap}
 #mbar button{padding:10px 16px;border-radius:10px;border:1px solid var(--line);background:var(--panel);font-weight:600}
 #mbar .pri{background:var(--ac);border-color:var(--ac);color:#000}
 #mbar .del{color:#ff6b6b}
+#modes{display:flex;gap:4px;justify-content:center}
+#modes button{padding:6px 12px;border-radius:99px;border:1px solid transparent;background:transparent;color:var(--mut);font-weight:600;font-size:13px}
+#modes button[aria-pressed=true]{color:var(--ac);border-color:var(--ac)}
+#cine{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none}
+#cine.on{display:block}#cine.mirror{transform:scaleX(-1)}
+#shutter{font-weight:800;font-size:13px;color:#000}
+#shutter.live{background:#e5252a;color:#fff;border-radius:22px;animation:pl 1.2s infinite}
+@keyframes pl{50%{box-shadow:0 0 0 3px var(--bg) inset,0 0 16px 4px rgba(229,37,42,.6)}}
+body[data-m=video] .ready #shutter:not(.live),body[data-m=cine] .ready #shutter:not(.live){background:var(--ac)}
+#left #apL{display:none}
+body[data-m=cine] #left #sensL{display:none}body[data-m=cine] #left #apL{display:flex}
+body[data-m=roam] #auto,body[data-m=video] #auto,body[data-m=cine] #auto{display:none}
+body[data-m=video] #left{visibility:hidden}
+#review{position:fixed;inset:0;background:var(--bg);display:none;flex-direction:column;z-index:9;padding:env(safe-area-inset-top,0) 12px env(safe-area-inset-bottom,0)}
+#review.on{display:flex}
+#rvh{display:flex;justify-content:space-between;align-items:center;padding:12px 0;gap:8px}
+#rvg{flex:1;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;align-content:start;color:var(--mut)}
+#rvg .th{width:100%;height:auto;aspect-ratio:1}
 @media(max-width:420px){#bars{grid-template-columns:1fr 1fr}#score{font-size:22px}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
-<body>
+<body data-m="photo">
 <div id="app">
   <div id="stage">
     <video id="v" playsinline muted autoplay></video>
+    <canvas id="cine"></canvas>
     <canvas id="ov"></canvas>
     <div id="grid"><i style="left:33.333%;top:0;bottom:0;width:1px"></i><i style="left:66.666%;top:0;bottom:0;width:1px"></i><i style="top:33.333%;left:0;right:0;height:1px"></i><i style="top:66.666%;left:0;right:0;height:1px"></i><b style="left:33.333%;top:33.333%"></b><b style="left:66.666%;top:33.333%"></b><b style="left:33.333%;top:66.666%"></b><b style="left:66.666%;top:66.666%"></b></div>
     <div id="hud">
@@ -96,6 +115,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--ac);outline-off
     <div id="flash"></div>
   </div>
   <div id="dock">
+    <div id="modes"><button data-m="photo" aria-pressed="true">Photo</button><button data-m="roam" aria-pressed="false">Roam</button><button data-m="video" aria-pressed="false">Video</button><button data-m="cine" aria-pressed="false">Cinematic</button></div>
     <div id="strip">
       <div id="thumbs"></div>
       <button class="sm" id="dlAll">Download all</button>
@@ -104,7 +124,8 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--ac);outline-off
     <div id="ctl">
       <div id="left">
         <button id="auto" aria-pressed="true">AUTO</button>
-        <label>Sensitivity <span id="thv">82</span><input id="thr" type="range" min="65" max="95" value="82" aria-label="Auto-capture score threshold"></label>
+        <label id="sensL">Sensitivity <span id="thv">82</span><input id="thr" type="range" min="65" max="95" value="82" aria-label="Auto-capture score threshold"></label>
+        <label id="apL">Blur <input id="ap" type="range" min="0" max="100" value="60" aria-label="Background blur"></label>
       </div>
       <button id="shutter" aria-label="Take photo"></button>
       <button id="flip" aria-label="Switch camera">Flip</button>
@@ -113,6 +134,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--ac);outline-off
 </div>
 <div id="modal" role="dialog" aria-modal="true">
   <img id="mimg" alt="Captured photo">
+  <video id="mvid" controls playsinline hidden></video>
   <div id="mbar">
     <button class="pri" id="mShare">Save / Share</button>
     <button id="mDl">Download JPG</button>
@@ -121,6 +143,10 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--ac);outline-off
   </div>
 </div>
 
+<div id="review" role="dialog" aria-modal="true">
+  <div id="rvh"><strong id="rvt"></strong><span><button class="sm" id="rvDl">Download all</button> <button class="sm" id="rvDone">Done</button></span></div>
+  <div id="rvg"></div>
+</div>
 <script type="module">
 const $ = id => document.getElementById(id);
 const video = $("v"), ov = $("ov"), octx = ov.getContext("2d");
@@ -152,7 +178,7 @@ async function dbDo(mode, fn) {
 }
 
 /* ---------- State ---------- */
-const S = { facing: "environment", auto: true, thr: 82, score: 0, sub: [0, 0, 0, 0], stab: 0, ai: "loading",
+const S = { mode: "photo", facing: "environment", auto: true, thr: 82, score: 0, sub: [0, 0, 0, 0], stab: 0, ai: "loading",
   prevL: null, sig: null, steadyAt: 0, lastCap: 0, capSig: null, subject: null, subjectAt: 0, face: null, obj: null, tick: 0 };
 let stream = null, faceDet = null, objDet = null, photos = [], audioCtx = null, current = null;
 
@@ -190,7 +216,7 @@ async function startCam() {
     banner(e.name === "NotAllowedError" ? "Camera permission denied. Allow camera access in your browser settings, then reload." : "Could not start the camera: " + e.message);
   }
 }
-$("flip").onclick = () => { S.facing = S.facing === "environment" ? "user" : "environment"; startCam(); };
+$("flip").onclick = () => { stopRec(); S.facing = S.facing === "environment" ? "user" : "environment"; startCam(); };
 
 /* ---------- Analysis ---------- */
 const off = document.createElement("canvas"), octx2 = off.getContext("2d", { willReadFrequently: true });
@@ -278,12 +304,12 @@ addEventListener("resize", resizeOv); resizeOv();
 
 function drawBox() {
   const r = ov.getBoundingClientRect(); octx.clearRect(0, 0, r.width, r.height);
-  const s = S.subject; if (!s || !video.videoWidth) return;
+  const s = S.mode === "cine" ? cineBox() : S.subject; if (!s || !video.videoWidth) return;
   const k = Math.max(r.width / video.videoWidth, r.height / video.videoHeight);
   const ox = (r.width - video.videoWidth * k) / 2, oy = (r.height - video.videoHeight * k) / 2;
   let x = ox + s.x * video.videoWidth * k; const y = oy + s.y * video.videoHeight * k, w = s.w * video.videoWidth * k, h = s.h * video.videoHeight * k;
   if (S.facing === "user") x = r.width - x - w;
-  octx.lineWidth = 2; octx.strokeStyle = $("app").classList.contains("ready") ? "#10b981" : "#ff6b00"; octx.strokeRect(x, y, w, h);
+  octx.lineWidth = 2; octx.strokeStyle = S.mode === "cine" ? "#ffd60a" : $("app").classList.contains("ready") ? "#10b981" : "#ff6b00"; octx.strokeRect(x, y, w, h);
   octx.font = "600 12px system-ui"; const tw = octx.measureText(s.label).width + 10;
   octx.fillStyle = octx.strokeStyle; octx.fillRect(x, Math.max(0, y - 20), tw, 20);
   octx.fillStyle = "#000"; octx.fillText(s.label, x + 5, Math.max(14, y - 6));
@@ -304,14 +330,15 @@ function loop() {
   const allowed = cooled && (shifted || now - S.lastCap > 5000);
   const ready = S.score >= S.thr && S.stab >= 75;
   $("app").classList.toggle("ready", ready);
-  if (S.auto && ready && allowed) {
+  if (S.mode === "photo" && S.auto && ready && allowed) {
     if (!S.steadyAt) S.steadyAt = now;
     if (now - S.steadyAt >= 350) { S.steadyAt = 0; capture("auto", a.sig); }
   } else S.steadyAt = 0;
   $("sc").textContent = Math.round(S.score);
   sub.forEach((v, i) => { $("b" + i).style.width = v + "%"; $("t" + i).textContent = Math.round(v); });
   const g = guidance({ stab: S.stab, sharp: sub[1], light: sub[2], edge: a.edge }, ready && S.auto && !allowed ? false : ready);
-  $("guide").textContent = S.auto && ready && !allowed ? "Move to a new scene" : g;
+  if (S.mode === "roam" && R.on) roamStep(a, sub, raw, now);
+  $("guide").textContent = S.mode === "photo" ? (S.auto && ready && !allowed ? "Move to a new scene" : g) : modeGuide(sub);
   S.sig = a.sig; drawBox();
 }
 setInterval(loop, 60);
@@ -331,44 +358,53 @@ function toast(t) { const el = $("toast"); el.textContent = t; el.classList.add(
 async function capture(mode, sig) {
   const vw = video.videoWidth, vh = video.videoHeight; if (!vw) return;
   S.lastCap = performance.now(); S.capSig = sig || S.sig;
-  const c = document.createElement("canvas"); c.width = vw; c.height = vh; const x = c.getContext("2d");
-  if (S.facing === "user") { x.translate(vw, 0); x.scale(-1, 1); }
-  x.drawImage(video, 0, 0, vw, vh);
+  const c = document.createElement("canvas"); drawFrame(c);
   const f = $("flash"); f.classList.remove("go"); void f.offsetWidth; f.classList.add("go");
   shutterSound(); toast(mode === "auto" ? "Auto-captured" : "Photo captured");
   const blob = await new Promise(r => c.toBlob(r, "image/jpeg", .92));
-  const meta = { id: Date.now() + "-" + Math.random().toString(36).slice(2, 7), shotScore: Math.round(S.score), mode, facing: S.facing, timestamp: Date.now() };
+  return saveShot(blob, Math.round(S.score), mode);
+}
+async function saveShot(blob, shotScore, mode, type = "photo") {
+  const meta = { id: Date.now() + "-" + Math.random().toString(36).slice(2, 7), shotScore, mode, facing: S.facing, timestamp: Date.now(), type };
   const rec = { ...meta, blob };
   photos.push(rec); renderGallery();
   try { await dbDo("readwrite", s => s.put(rec)); } catch (e) { console.warn("Save failed", e); }
   uploadPhotoToCloud(blob, meta).catch(() => {});
+  return rec;
 }
-$("shutter").onclick = () => capture("manual");
+$("shutter").onclick = shutterAction;
 
 /* ---------- Gallery & modal ---------- */
-function renderGallery() {
-  const box = $("thumbs"); box.querySelectorAll("img").forEach(i => URL.revokeObjectURL(i.src)); box.innerHTML = "";
-  photos.slice().reverse().forEach(p => {
-    const b = document.createElement("button"); b.className = "th"; b.setAttribute("aria-label", "Open photo, score " + p.shotScore);
-    const im = document.createElement("img"); im.src = URL.createObjectURL(p.blob); im.alt = "";
-    const em = document.createElement("em"); em.textContent = p.shotScore;
-    b.append(im, em); b.onclick = () => openModal(p); box.append(b);
-  });
+function mkThumb(p) {
+  const v = p.type === "video", b = document.createElement("button"); b.className = "th"; b.setAttribute("aria-label", v ? "Open video" : "Open photo, score " + p.shotScore);
+  const im = document.createElement(v ? "video" : "img"); im.src = URL.createObjectURL(p.blob);
+  if (v) { im.muted = true; im.preload = "metadata"; im.playsInline = true; } else im.alt = "";
+  const em = document.createElement("em"); em.textContent = v ? "\u25b6" : p.shotScore;
+  b.append(im, em); b.onclick = () => openModal(p); return b;
 }
-function openModal(p) { current = p; const m = $("mimg"); URL.revokeObjectURL(m.src); m.src = URL.createObjectURL(p.blob); $("modal").classList.add("on"); }
-function closeModal() { $("modal").classList.remove("on"); current = null; }
-const fname = p => `smart-shot-${new Date(p.timestamp).toISOString().replace(/[:.]/g, "-")}.jpg`;
+function renderGallery() {
+  const box = $("thumbs"); box.querySelectorAll("img,video").forEach(i => URL.revokeObjectURL(i.src)); box.innerHTML = "";
+  photos.slice().reverse().forEach(p => box.append(mkThumb(p)));
+}
+function openModal(p) {
+  current = p; const v = p.type === "video", m = $("mimg"), mv = $("mvid");
+  URL.revokeObjectURL(m.src); URL.revokeObjectURL(mv.src); m.hidden = v; mv.hidden = !v;
+  if (v) mv.src = URL.createObjectURL(p.blob); else m.src = URL.createObjectURL(p.blob);
+  $("modal").classList.add("on");
+}
+function closeModal() { $("modal").classList.remove("on"); $("mvid").pause(); current = null; }
+const fname = p => `smart-${p.type === "video" ? "video" : "shot"}-${new Date(p.timestamp).toISOString().replace(/[:.]/g, "-")}.${p.type === "video" ? (p.blob.type.includes("mp4") ? "mp4" : "webm") : "jpg"}`;
 function download(p) { const a = document.createElement("a"); a.href = URL.createObjectURL(p.blob); a.download = fname(p); document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
 $("mClose").onclick = closeModal;
 $("mDl").onclick = () => current && download(current);
 $("mShare").onclick = async () => {
-  if (!current) return; const file = new File([current.blob], fname(current), { type: "image/jpeg" });
+  if (!current) return; const file = new File([current.blob], fname(current), { type: current.blob.type });
   try { if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file] }); else download(current); }
   catch (e) { if (e.name !== "AbortError") download(current); }
 };
 $("mDel").onclick = async () => {
   if (!current) return; const id = current.id; photos = photos.filter(p => p.id !== id);
-  try { await dbDo("readwrite", s => s.delete(id)); } catch (e) {} closeModal(); renderGallery();
+  try { await dbDo("readwrite", s => s.delete(id)); } catch (e) {} closeModal(); renderGallery(); R.session = R.session.filter(p => p.id !== id); if ($("review").classList.contains("on")) showReview();
 };
 $("dlAll").onclick = () => photos.forEach((p, i) => setTimeout(() => download(p), i * 350));
 $("clr").onclick = async () => {
@@ -381,6 +417,111 @@ addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
 $("auto").onclick = e => { S.auto = !S.auto; e.currentTarget.setAttribute("aria-pressed", S.auto); S.steadyAt = 0; };
 $("thr").oninput = e => { S.thr = +e.target.value; $("thv").textContent = S.thr; };
 $("gridBtn").onclick = e => { const on = $("grid").classList.toggle("on"); e.currentTarget.setAttribute("aria-pressed", on); };
+
+/* ---------- Modes: Photo / Roam / Video / Cinematic ---------- */
+const R = { on: false, n: 0, best: null, cv: document.createElement("canvas"), saved: [], session: [], winStart: 0, lastSave: 0 };
+const V = { rec: null, chunks: [], t0: 0, mic: null };
+const C = { cv: $("cine"), sm: document.createElement("canvas"), tp: document.createElement("canvas"), blur: 60, lock: 0,
+  t: { cx: .5, cy: .5, rx: .25, ry: .35 }, cur: { cx: .5, cy: .5, rx: .25, ry: .35 } };
+function drawFrame(c) { const vw = video.videoWidth, vh = video.videoHeight; c.width = vw; c.height = vh; const x = c.getContext("2d"); if (S.facing === "user") { x.translate(vw, 0); x.scale(-1, 1); } x.drawImage(video, 0, 0, vw, vh); }
+const sigDiff = (a, b) => { let d = 0; for (let i = 0; i < a.length; i++) d += Math.abs(a[i] - b[i]); return d / a.length; };
+const fmt = () => { const t = Math.floor((performance.now() - V.t0) / 1000); return String(Math.floor(t / 60)).padStart(2, "0") + ":" + String(t % 60).padStart(2, "0"); };
+
+function setShutter() {
+  const s = $("shutter"), live = (S.mode === "roam" && R.on) || !!V.rec;
+  s.classList.toggle("live", live);
+  s.textContent = S.mode === "photo" ? "" : S.mode === "roam" ? (R.on ? "Stop" : "Start") : (V.rec ? "Stop" : "Rec");
+  s.setAttribute("aria-label", s.textContent || "Take photo");
+}
+function setMode(m) {
+  if (m === S.mode) return;
+  if (V.rec) stopRec(); if (R.on) { R.on = false; R.best = null; }
+  S.mode = m; document.body.dataset.m = m;
+  document.querySelectorAll("#modes button").forEach(b => b.setAttribute("aria-pressed", b.dataset.m === m));
+  C.cv.classList.toggle("on", m === "cine"); setShutter(); if (m === "cine") cineLoop();
+}
+$("modes").onclick = e => { const b = e.target.closest("button"); if (b) setMode(b.dataset.m); };
+function modeGuide(sub) {
+  if (S.mode === "roam") return R.on ? (sub[1] < 35 ? "Slow down for sharper shots" : `Roaming: ${R.n} good shot${R.n === 1 ? "" : "s"} saved. Keep moving`) : "Tap Start, then move the camera around";
+  if (S.mode === "video") return V.rec ? "\u25cf Recording " + fmt() : "Video: tap Rec";
+  return V.rec ? "\u25cf Cinematic " + fmt() + " (tap to refocus)" : "Cinematic: tap the screen to set focus";
+}
+function shutterAction() {
+  if (S.mode === "photo") return capture("manual");
+  if (S.mode === "roam") { if (R.on) { R.on = false; setShutter(); showReview(); } else { Object.assign(R, { on: true, n: 0, best: null, saved: [], session: [], lastSave: 0 }); setShutter(); toast("AI is watching. Start moving"); } return; }
+  return V.rec ? stopRec() : startRec();
+}
+
+/* Roam: while the person moves, keep the best frame of each moment and save it */
+function roamStep(a, sub, raw, now) {
+  const ok = sub[1] >= 40 && sub[2] >= 50 && sub[3] >= 50;
+  if (ok && raw >= Math.max(S.thr - 12, 62) && (!R.best || raw > R.best.score)) {
+    if (!R.best) R.winStart = now;
+    drawFrame(R.cv); R.best = { score: raw, sig: a.sig, at: now };
+  }
+  if (R.best && (now - R.best.at > 700 || now - R.winStart > 3000)) {
+    const b = R.best; R.best = null;
+    if (now - R.lastSave > 1200 && R.saved.every(g => sigDiff(g, b.sig) > 14)) {
+      R.saved.push(b.sig); R.lastSave = now; R.n++;
+      R.cv.toBlob(bl => saveShot(bl, Math.round(b.score), "roam").then(rec => R.session.push(rec)), "image/jpeg", .92);
+      toast("Good shot " + R.n); navigator.vibrate?.(30);
+    }
+  }
+}
+function showReview() {
+  const g = $("rvg"); g.innerHTML = ""; const list = R.session.slice().sort((a, b) => b.shotScore - a.shotScore);
+  $("rvt").textContent = list.length ? `${list.length} good shot${list.length === 1 ? "" : "s"} found` : "No good scenes found";
+  if (!list.length) g.textContent = "Nothing scored high enough. Move slower, add light, or lower Sensitivity.";
+  list.forEach(p => g.append(mkThumb(p))); $("review").classList.add("on");
+}
+$("rvDone").onclick = () => $("review").classList.remove("on");
+$("rvDl").onclick = () => R.session.forEach((p, i) => setTimeout(() => download(p), i * 350));
+
+/* Video + Cinematic recording */
+async function startRec() {
+  if (!stream) return;
+  if (typeof MediaRecorder === "undefined") return toast("Recording is not supported here");
+  const m = S.mode; let src;
+  if (m === "cine") { if (!C.cv.captureStream) return toast("Cinematic recording is not supported here"); src = C.cv.captureStream(30); }
+  else src = new MediaStream(stream.getVideoTracks());
+  try { V.mic = await navigator.mediaDevices.getUserMedia({ audio: true }); V.mic.getAudioTracks().forEach(t => src.addTrack(t)); } catch (e) { V.mic = null; }
+  const type = ["video/mp4", "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"].find(t => MediaRecorder.isTypeSupported(t)) || "";
+  V.chunks = []; const rec = new MediaRecorder(src, type ? { mimeType: type, videoBitsPerSecond: 6e6 } : {});
+  rec.ondataavailable = e => e.data.size && V.chunks.push(e.data);
+  rec.onstop = async () => { V.mic?.getTracks().forEach(t => t.stop()); V.mic = null; await saveShot(new Blob(V.chunks, { type: rec.mimeType || type }), 0, m, "video"); toast("Video saved"); };
+  rec.start(1000); V.rec = rec; V.t0 = performance.now(); setShutter();
+}
+function stopRec() { if (V.rec && V.rec.state !== "inactive") V.rec.stop(); V.rec = null; setShutter(); }
+
+/* Cinematic: software depth-of-field. Subject (face/object) stays sharp, the rest is blurred; focus glides between subjects */
+const cineBox = () => { const c = C.cur; return { x: c.cx - c.rx * .62, y: c.cy - c.ry * .62, w: c.rx * 1.25, h: c.ry * 1.25, label: "Focus" }; };
+function cineLoop() {
+  if (S.mode !== "cine") return; requestAnimationFrame(cineLoop);
+  const vw = video.videoWidth; if (!vw || video.readyState < 2) return;
+  const now = performance.now(), s = S.subject;
+  if (!(C.lock && now < C.lock) && s) C.t = { cx: s.x + s.w / 2, cy: s.y + s.h / 2, rx: Math.max(.12, s.w * .8), ry: Math.max(.14, s.h * .8) };
+  for (const k in C.t) C.cur[k] += (C.t[k] - C.cur[k]) * .12;
+  const sc = Math.min(1, 1280 / vw), w = Math.round(vw * sc), h = Math.round(video.videoHeight * sc), f = 4 + C.blur * .16;
+  const sw = Math.max(8, Math.round(w / f)), sh = Math.max(8, Math.round(h / f)), cv = C.cv, c = C.cur;
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; C.tp.width = w; C.tp.height = h; }
+  if (C.sm.width !== sw || C.sm.height !== sh) { C.sm.width = sw; C.sm.height = sh; }
+  cv.classList.toggle("mirror", S.facing === "user");
+  const sx = C.sm.getContext("2d"), cx = cv.getContext("2d"), tx = C.tp.getContext("2d");
+  sx.drawImage(video, 0, 0, sw, sh); cx.imageSmoothingQuality = "high"; cx.drawImage(C.sm, 0, 0, w, h);
+  tx.globalCompositeOperation = "source-over"; tx.clearRect(0, 0, w, h); tx.drawImage(video, 0, 0, w, h);
+  tx.globalCompositeOperation = "destination-in"; tx.save(); tx.translate(c.cx * w, c.cy * h); tx.scale(c.rx * w, c.ry * h);
+  const g = tx.createRadialGradient(0, 0, .55, 0, 0, 1.05); g.addColorStop(0, "#000"); g.addColorStop(1, "rgba(0,0,0,0)");
+  tx.fillStyle = g; tx.fillRect(-60, -60, 120, 120); tx.restore(); cx.drawImage(C.tp, 0, 0);
+}
+$("ap").oninput = e => { C.blur = +e.target.value; };
+$("stage").addEventListener("click", e => {
+  const vw = video.videoWidth, vh = video.videoHeight; if (S.mode !== "cine" || !vw || e.target.closest("#hud,#banner")) return;
+  const r = ov.getBoundingClientRect(), k = Math.max(r.width / vw, r.height / vh); let px = e.clientX - r.left; if (S.facing === "user") px = r.width - px;
+  const nx = (px - (r.width - vw * k) / 2) / (vw * k), ny = (e.clientY - r.top - (r.height - vh * k) / 2) / (vh * k), s = S.subject;
+  if (s && nx >= s.x && nx <= s.x + s.w && ny >= s.y && ny <= s.y + s.h) { C.lock = 0; return; }
+  C.t = { cx: nx, cy: ny, rx: .2, ry: .28 }; C.lock = performance.now() + 5000;
+});
+setShutter();
 
 /* ---------- Boot ---------- */
 (async () => {
